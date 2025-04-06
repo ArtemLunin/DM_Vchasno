@@ -11,6 +11,6 @@ $param = [
 
 $test_prro = new tPRRO($param);
 
-// echo $test_prro->OpenDay();
-echo $test_prro->CloseDay();
+echo $test_prro->OpenDay();
+// echo $test_prro->CloseDay();
 
