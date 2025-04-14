@@ -284,12 +284,42 @@ function OplCheck($s, $type)
 {
     // error_log("$s, $type");
     $xml = simplexml_load_string($s);
-     if (!$xml) { $mess = '0;Ошибка в спецификации.'; return; }
+    if (!$xml) { $mess = '0;Ошибка в спецификации.'; return; }
+    $total_sum = 0.0;
+    $toatl_disc = 0.0;
+    $check_items = [];
+    $type_pay = ($type != 0 ? 0: 2);
+    // "code": "104",
+    // "name": "104.Плацентарний лактоген",
+    // "cnt": 1,
+    // "price": 0,
+    // "disc": 17,
+    // "disc_type": 0,
+    // "cost": 340,
+    // "taxgrp": 1
      $check = '{"F":[';
      foreach($xml->SPECLIST->SPEC as $spec)
      {
        $check .= '{"S":{"code":'.$spec->KOD.',"qty":'.$spec->KOL.',"price":'.$spec->CENA.',"name":"'.$spec->KOD.'.'.$spec->NAME.'","tax":'.$spec->NDS.'}},';
-      if($spec->DISC != 0)
+       $disc = 0;
+       if($spec->DISC != 0)
+       {
+        $disc = $spec->DISC;
+       }
+       $disc = $spec->CENA - ($spec->CENA * $disc) / 100;
+       $check_items[] = [
+        "code"  => $spec->KOD . "",
+        "name"  => $spec->KOD . '.' . $spec->NAME,
+        "cnt"   => $spec->KOL + 0,
+        "price" => $spec->CENA + 0,
+        "disc"  => $disc,
+        "disc_type" => 0,
+        "cost"  => 0.0,
+        "taxgrp"    => 1
+       ];
+       $total_sum += $spec->CENA * $spec->KOL;
+       $toatl_disc += $disc;
+       if($spec->DISC != 0)
        {
 //           $check .= '{"D":{"prc":-'.$spec->DISC.'}},';
           $check .= '{"D":{"sum":-'.$spec->SDISC.'}},';
@@ -297,7 +327,23 @@ function OplCheck($s, $type)
      }
     $check .='{"P":{"no":'.($type != 0 ? 1:4).'}}]}';
     
-    return "0;Ошибочка ".print_r($check, true); //'Windows-1251', 'UTF-8').";type - $type";
+    $this->dm_request_data['fiscal'] = [
+        "task"  => 1,
+        "cashier"   => "",
+        "receipt"   => [
+            "sum"   => $total_sum,
+            "disc"  => 0,
+            "disc_type" => 0,
+            "rows"  => $check_items,
+            "pays"  => [
+                "type"  =>  $type_pay,
+                "sum"   => $total_sum,
+                "comment"   => mb_convert_encoding('коментар до оплати картою', 'UTF-8','Windows-1251')
+            ]
+        ]
+    ];
+    // return "0;Ошибочка: ".json_encode($this->dm_request_data['fiscal']); //'Windows-1251', 'UTF-8').";type - $type";
+    return "0;Ошибочка: ".$this->SendCmd('', json_encode($this->dm_request_data));
 }
 
 
