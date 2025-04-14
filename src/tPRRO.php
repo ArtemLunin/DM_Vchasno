@@ -286,7 +286,7 @@ function OplCheck($s, $type)
     $xml = simplexml_load_string($s);
     if (!$xml) { $mess = '0;Ошибка в спецификации.'; return; }
     $total_sum = 0.0;
-    $toatl_disc = 0.0;
+    $total_disc = 0.0;
     $check_items = [];
     $type_pay = ($type != 0 ? 0: 2);
     // "code": "104",
@@ -297,16 +297,16 @@ function OplCheck($s, $type)
     // "disc_type": 0,
     // "cost": 340,
     // "taxgrp": 1
-     $check = '{"F":[';
-     foreach($xml->SPECLIST->SPEC as $spec)
-     {
-       $check .= '{"S":{"code":'.$spec->KOD.',"qty":'.$spec->KOL.',"price":'.$spec->CENA.',"name":"'.$spec->KOD.'.'.$spec->NAME.'","tax":'.$spec->NDS.'}},';
-       $disc = 0;
-       if($spec->DISC != 0)
-       {
-        $disc = $spec->DISC;
-       }
-       $disc = $spec->CENA - ($spec->CENA * $disc) / 100;
+    $check = '{"F":[';
+    foreach($xml->SPECLIST->SPEC as $spec)
+    {
+        $check .= '{"S":{"code":'.$spec->KOD.',"qty":'.$spec->KOL.',"price":'.$spec->CENA.',"name":"'.$spec->KOD.'.'.$spec->NAME.'","tax":'.$spec->NDS.'}},';
+        $disc = 0;
+        if ($spec->SDISC != 0)
+        {
+            $disc = $spec->SDISC + 0;
+        }
+    //    $disc = ($spec->CENA * $disc) / 100;
        $check_items[] = [
         "code"  => $spec->KOD . "",
         "name"  => $spec->KOD . '.' . $spec->NAME,
@@ -318,7 +318,7 @@ function OplCheck($s, $type)
         "taxgrp"    => 1
        ];
        $total_sum += $spec->CENA * $spec->KOL;
-       $toatl_disc += $disc;
+       $total_disc += $disc;
        if($spec->DISC != 0)
        {
 //           $check .= '{"D":{"prc":-'.$spec->DISC.'}},';
@@ -331,19 +331,26 @@ function OplCheck($s, $type)
         "task"  => 1,
         "cashier"   => "",
         "receipt"   => [
-            "sum"   => $total_sum,
+            "sum"   => $total_sum - $total_disc,
             "disc"  => 0,
             "disc_type" => 0,
             "rows"  => $check_items,
             "pays"  => [
-                "type"  =>  $type_pay,
-                "sum"   => $total_sum,
-                "comment"   => mb_convert_encoding('коментар до оплати картою', 'UTF-8','Windows-1251')
+                [
+                    "type"  =>  $type_pay,
+                    "sum"   => $total_sum - $total_disc,
+                    "comment"   => mb_convert_encoding('коментар до оплати картою', 'UTF-8','Windows-1251')
+                ]
             ]
         ]
     ];
-    // return "0;Ошибочка: ".json_encode($this->dm_request_data['fiscal']); //'Windows-1251', 'UTF-8').";type - $type";
-    return "0;Ошибочка: ".$this->SendCmd('', json_encode($this->dm_request_data));
+    // return "0;Ошибочка: ".$check;
+    // return "0;Ошибочка: ".json_encode($this->dm_request_data); //'Windows-1251', 'UTF-8').";type - $type";
+    // return "0;Ошибочка: ".$this->SendCmd('', json_encode($this->dm_request_data));
+    $res_opl = $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), true);
+    if ($res_opl !== true) {
+        return '0;Ошибка принтера: '.print_r($res_opl, true).'<br>'.print_r(recursiveConvertEncoding($this->dm_request_data), true);
+    }
 }
 
 
