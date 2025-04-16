@@ -28,6 +28,8 @@ class tPRRO {
     var $path = '/dm/execute';
     var $ready;
     var $server = false;
+    var $cash = 0.0;
+    var $card = 0.0;
 
     var $dm_request_data = [];
 
@@ -124,11 +126,11 @@ class tPRRO {
         $mess = $this->GetStateKassa($kassir, $smena, $KASSACASH, $karta, $dt);
         // $mess .= $this->InOutCash(1, $KASSACASH);
         // if($mess != '' ) return $mess;
-        // $mess.=$this->XReport();
+        $mess .= $this->XReport();
         // $mess.=$this->CtrlCheckReport();
         // $mess.=$this->CtrlCheckReport();
-        if(!$this->ZReport())  return false;
-        if($mess != '' ) return $mess;
+        if (!$this->ZReport()) return false;
+        if ($mess != '' ) return $mess;
     }
 
     function GetConfig(&$forma, $r, $ro = false)
@@ -237,7 +239,31 @@ function XReport()
         "task"  => 10,
         "cashier"   => ""
     ];
-    return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
+    $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
+    if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+        if (isset($res_json['res']) && $res_json['res'] != 0) {
+            return recursiveConvertEncoding($res_json['errortxt']);
+        }
+        // if ($getPayInfo) {
+        $this->cash = 0.0;
+        $this->card = 0.0;
+        if (isset($res_json['info']['pays'])) {
+            foreach ($res_json['info']['pays'] as $pay) {
+                // $sum = $pay['sum_p'] - $pay['sum_m'];
+                switch ($pay['type']) {
+                    case 0:
+                        $this->cash = $pay['sum_p'] - $pay['sum_m'];
+                        break;
+                    case 2:
+                        $this->card = $pay['sum_p'] - $pay['sum_m'];
+                        break;
+                }
+            }
+        }
+        // }
+    }
+    
+    // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
 }
 
 function X3Report()
@@ -268,14 +294,18 @@ function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
 {
     $res = $this->getStatusPRRO();
     if ($res === false) return 'ДМ недоступен';
-    $ret = json_decode($res, true);
+    // $ret = json_decode($res, true);
     if (isset($res) && ($ret = json_decode($res, true)) !== null) {
         $k='1';
         $s = ($ret['info']['shift_status'] == 0 ? 'Закрыта' : 'Открыта');
         // $dt[1] = date('d-m-Y', $ret['time']);
         // $dt[2] = date('H:i:s', $ret['time']);
         $dt[3] = date('d-m-Y');
-        $dt[4] = date('H:i:s');   
+        $dt[4] = date('H:i:s');
+        $mess = $this->XReport();
+        if ($mess != '') return $mess;
+        $c = $this->cash;
+        $karta = $this->card;
     }
     return '';
 }
