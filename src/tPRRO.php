@@ -19,6 +19,24 @@ function recursiveConvertEncoding($data, $from = 'UTF-8', $to = 'Windows-1251') 
     }
 }
 
+function getMoneyInfo($money_arr) {
+    $cash = $card = 0;
+    foreach ($money_arr as $money) {
+        switch ($money['type']) {
+            case 0:
+                $cash = $money['sum_p'] - $money['sum_m'];
+                break;
+            case 2:
+                $card = $money['sum_p'] - $money['sum_m'];
+                break;
+        }
+    }
+    return [
+        'cash'  => $cash,
+        'card'  => $card
+    ];
+}
+
 class tPRRO {
     var $dm_address = '';
     var $dm_port = '3939';
@@ -124,13 +142,14 @@ class tPRRO {
     function CloseDay()
     {
         $mess = $this->GetStateKassa($kassir, $smena, $KASSACASH, $karta, $dt);
-        // $mess .= $this->InOutCash(1, $KASSACASH);
-        // if($mess != '' ) return $mess;
-        $mess .= $this->XReport();
+        $mess .= $this->InOutCash(1, $KASSACASH);
+        if($mess != '' ) return $mess;
+        // $mess .= $this->XReport();
         // $mess.=$this->CtrlCheckReport();
         // $mess.=$this->CtrlCheckReport();
         if (!$this->ZReport()) return false;
         if ($mess != '' ) return $mess;
+        // if ($mess != '' ) return 'qwerty';
     }
 
     function GetConfig(&$forma, $r, $ro = false)
@@ -217,7 +236,6 @@ function CheckReady()
             "task"  => 11,
             "cashier"   => ""
         ];
-        // return $this->SendCmd('', json_encode($this->dm_request_data));
         return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), true);
     }
 
@@ -250,29 +268,35 @@ function XReport()
         $pay_cash = $pay_card = 0.0;
         $money_cash = $money_card = 0.0;
         if (isset($res_json['info']['pays'])) {
-            foreach ($res_json['info']['pays'] as $pay) {
-                // $sum = $pay['sum_p'] - $pay['sum_m'];
-                switch ($pay['type']) {
-                    case 0:
-                        $pay_cash = $pay['sum_p'] - $pay['sum_m'];
-                        break;
-                    case 2:
-                        $pay_card = $pay['sum_p'] - $pay['sum_m'];
-                        break;
-                }
-            }
+            $money_res = getMoneyInfo($res_json['info']['pays']);
+            $pay_cash = $money_res['cash'];
+            $pay_card = $money_res['card'];
+            // foreach ($res_json['info']['pays'] as $pay) {
+            //     // $sum = $pay['sum_p'] - $pay['sum_m'];
+            //     switch ($pay['type']) {
+            //         case 0:
+            //             $pay_cash = $pay['sum_p'] - $pay['sum_m'];
+            //             break;
+            //         case 2:
+            //             $pay_card = $pay['sum_p'] - $pay['sum_m'];
+            //             break;
+            //     }
+            // }
         }
         if (isset($res_json['info']['money'])) {
-            foreach ($res_json['info']['money'] as $money) {
-                switch ($money['money']) {
-                    case 0:
-                        $money_cash = $money['sum_p'] - $money['sum_m'];
-                        break;
-                    case 2:
-                        $money_card = $money['sum_p'] - $money['sum_m'];
-                        break;
-                }
-            }
+            $money_res = getMoneyInfo($res_json['info']['money']);
+            $money_cash = $money_res['cash'];
+            $money_card = $money_res['card'];
+            // foreach ($res_json['info']['money'] as $money) {
+            //     switch ($money['money']) {
+            //         case 0:
+            //             $money_cash = $money['sum_p'] - $money['sum_m'];
+            //             break;
+            //         case 2:
+            //             $money_card = $money['sum_p'] - $money['sum_m'];
+            //             break;
+            //     }
+            // }
         }
         $this->cash = $pay_cash + $money_cash;
         $this->card = $pay_card + $money_card;
@@ -302,9 +326,24 @@ function FMNumReport($flg, $ds, $dp)
 	// return $this->GetData('/cgi/proc/printfmreport?'.($flg == 1 ? 2:4).'&2015-01-01&2015-01-01&'.$ds.'&'.$dp);
 }
 
-function InOutCash($flg, $cash)
-{
-}
+    function InOutCash($flg, $cash)
+    {
+        // $res=$this->SendCmd('/cgi/chk', '{"IO":[{"IO":{"sum":'.($flg == 0 ? $cash : -$cash).'}}]}');
+        // if($res === false) return 'Принтер недоступен';
+        // $ret=json_decode($res, true);
+        // if(array_key_exists('err', $ret))
+        // {
+        //     return 'Ошибка принтера: '.print_r($res, true); //.iconv('utf8', 'cp1251', $ret['err']['e']);
+        // }	
+        $this->dm_request_data['fiscal'] = [
+            "task"  => ($flg == 0 ? 3 : 4),
+            "cash"  => [
+                "type"  => 0,
+                "sum"   => $cash
+            ]
+        ];
+        return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
+    }
 
 function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
 {
@@ -318,10 +357,12 @@ function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
         // $dt[2] = date('H:i:s', $ret['time']);
         $dt[3] = date('d-m-Y');
         $dt[4] = date('H:i:s');
-        $mess = $this->XReport();
-        if ($mess != '') return $mess;
-        $c = $this->cash;
-        $karta = $this->card;
+        if ($ret['info']['shift_status'] !== 0) {
+            $mess = $this->XReport();
+            if ($mess != '') return $mess;
+            $c = $this->cash;
+            $karta = $this->card;
+        }
     }
     return '';
 }
@@ -335,14 +376,6 @@ function OplCheck($s, $type)
     $total_disc = 0.0;
     $check_items = [];
     $type_pay = ($type != 0 ? 0: 2);
-    // "code": "104",
-    // "name": "104.Плацентарний лактоген",
-    // "cnt": 1,
-    // "price": 0,
-    // "disc": 17,
-    // "disc_type": 0,
-    // "cost": 340,
-    // "taxgrp": 1
     $check = '{"F":[';
     foreach($xml->SPECLIST->SPEC as $spec)
     {
@@ -352,7 +385,6 @@ function OplCheck($s, $type)
         {
             $disc = $spec->SDISC + 0;
         }
-    //    $disc = ($spec->CENA * $disc) / 100;
        $check_items[] = [
         "code"  => $spec->KOD . "",
         "name"  => $spec->KOD . '.' . $spec->NAME,
@@ -367,7 +399,6 @@ function OplCheck($s, $type)
        $total_disc += $disc;
        if($spec->DISC != 0)
        {
-//           $check .= '{"D":{"prc":-'.$spec->DISC.'}},';
           $check .= '{"D":{"sum":-'.$spec->SDISC.'}},';
        }
      }
