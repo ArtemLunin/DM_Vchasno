@@ -247,19 +247,35 @@ function XReport()
         // if ($getPayInfo) {
         $this->cash = 0.0;
         $this->card = 0.0;
+        $pay_cash = $pay_card = 0.0;
+        $money_cash = $money_card = 0.0;
         if (isset($res_json['info']['pays'])) {
             foreach ($res_json['info']['pays'] as $pay) {
                 // $sum = $pay['sum_p'] - $pay['sum_m'];
                 switch ($pay['type']) {
                     case 0:
-                        $this->cash = $pay['sum_p'] - $pay['sum_m'];
+                        $pay_cash = $pay['sum_p'] - $pay['sum_m'];
                         break;
                     case 2:
-                        $this->card = $pay['sum_p'] - $pay['sum_m'];
+                        $pay_card = $pay['sum_p'] - $pay['sum_m'];
                         break;
                 }
             }
         }
+        if (isset($res_json['info']['money'])) {
+            foreach ($res_json['info']['money'] as $money) {
+                switch ($money['money']) {
+                    case 0:
+                        $money_cash = $money['sum_p'] - $money['sum_m'];
+                        break;
+                    case 2:
+                        $money_card = $money['sum_p'] - $money['sum_m'];
+                        break;
+                }
+            }
+        }
+        $this->cash = $pay_cash + $money_cash;
+        $this->card = $pay_card + $money_card;
         // }
     }
     
