@@ -143,7 +143,7 @@ class tPRRO {
     {
         $mess = $this->GetStateKassa($kassir, $smena, $KASSACASH, $karta, $dt);
         $mess .= $this->InOutCash(1, $KASSACASH);
-        if($mess != '' ) return $mess;
+        if ($mess != '' ) return $mess;
         // $mess .= $this->XReport();
         // $mess.=$this->CtrlCheckReport();
         // $mess.=$this->CtrlCheckReport();
@@ -262,7 +262,6 @@ function XReport()
         if (isset($res_json['res']) && $res_json['res'] != 0) {
             return recursiveConvertEncoding($res_json['errortxt']);
         }
-        // if ($getPayInfo) {
         $this->cash = 0.0;
         $this->card = 0.0;
         $pay_cash = $pay_card = 0.0;
@@ -271,36 +270,14 @@ function XReport()
             $money_res = getMoneyInfo($res_json['info']['pays']);
             $pay_cash = $money_res['cash'];
             $pay_card = $money_res['card'];
-            // foreach ($res_json['info']['pays'] as $pay) {
-            //     // $sum = $pay['sum_p'] - $pay['sum_m'];
-            //     switch ($pay['type']) {
-            //         case 0:
-            //             $pay_cash = $pay['sum_p'] - $pay['sum_m'];
-            //             break;
-            //         case 2:
-            //             $pay_card = $pay['sum_p'] - $pay['sum_m'];
-            //             break;
-            //     }
-            // }
         }
         if (isset($res_json['info']['money'])) {
             $money_res = getMoneyInfo($res_json['info']['money']);
             $money_cash = $money_res['cash'];
             $money_card = $money_res['card'];
-            // foreach ($res_json['info']['money'] as $money) {
-            //     switch ($money['money']) {
-            //         case 0:
-            //             $money_cash = $money['sum_p'] - $money['sum_m'];
-            //             break;
-            //         case 2:
-            //             $money_card = $money['sum_p'] - $money['sum_m'];
-            //             break;
-            //     }
-            // }
         }
         $this->cash = $pay_cash + $money_cash;
         $this->card = $pay_card + $money_card;
-        // }
     }
     
     // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
