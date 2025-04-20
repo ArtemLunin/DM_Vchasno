@@ -48,6 +48,15 @@ class tPRRO {
     var $server = false;
     var $cash = 0.0;
     var $card = 0.0;
+    var $dm_unavailable_msg = 'DM недоступен';
+    var $dm_isoffline = false;
+    var $dm_dtype = 0;
+    var $dm_date = '';
+    var $dm_time = '';
+    var $dm_fisID = '';
+    var $check_is_fiscal = true;
+    var $dm_error_res = 0;
+    var $dm_errortxt = '';
 
     var $dm_request_data = [];
 
@@ -67,12 +76,44 @@ class tPRRO {
 
         $this->dm_request_data = [
             "ver"       => 6,
-            "source"    => "API",
+            "source"    => "LAB_API",
             "device"    => $this->prro_name,
             "type"      => 1,
             "fiscal"    => []
         ];
         $this->ready = true;
+    }
+
+    function getTagID() {
+        return sha1($this->dm_fisID) . date('YmdHis');
+    }
+
+    function checkEndOfPayDate($billing_arr) {
+        $bill_date = date_create_from_format('YmdHis', $billing_arr['paid_date_to']);
+        $msg = '';
+        if ($bill_date == false) {
+            $msg .= ' Увага! Дату закінчення оплати по касі не встановлено.'; 
+        } elseif ($bill_date->getTimestamp() <= time()) {
+            $msg .= ' Увага! Дата закінчення оплати по касі прострочена.'; 
+        }
+        if ($msg != '') {
+            return $msg;
+        }
+    }
+
+    function getStatusPRRO($res_json) {
+        $dm_dt = date_create_from_format('YmdHis', $res_json['dt']);
+        if ($dm_dt != false) {
+            $this->dm_date = $dm_dt->format('d-m-Y');
+            $this->dm_time = $dm_dt->format('H:i:s');
+        } else {
+            $this->dm_date = '';
+            $this->dm_time = '';
+        }
+        $this->dm_fisID = $res_json['info']['fisid'];
+        $this->dm_isoffline = $res_json['info']['isoffline'];
+        $this->dm_dtype = $res_json['info']['dtype'];
+        $this->cash = $res_json['info']['safe'];
     }
     
     // function convertEncodingRecursive(array $array, $from = 'Windows-1251', $to = 'UTF-8') {
@@ -91,7 +132,7 @@ class tPRRO {
             }
             return $retSuccess;
         }
-        return "Unknown error";
+        return 'Unknown error';
     }
 
     function CheckConfig()
@@ -136,7 +177,31 @@ class tPRRO {
         $this->dm_request_data['fiscal'] = [
             "task"  => 0
         ];
-        return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
+        $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
+        if ($raw_json === false) {
+            $this->dm_error_res = 1;
+            $this->dm_errortxt = $this->dm_unavailable_msg;
+        } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
+            $this->dm_error_res = 1;
+            $this->dm_errortxt = errortxt;
+        } else {
+            $this->dm_error_res = 0;
+            $this->dm_errortxt = '';
+            if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+                // if (isset($res_json['res']) && $res_json['res'] != 0) {
+                //     return recursiveConvertEncoding($res_json['errortxt']);
+                // }
+                // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
+                // $this->cash = 0.0;
+                // $this->cash = $res_json['info']['safe'];
+                $this->getStatusPRRO($res_json);
+                if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
+                    return $this->checkEndOfPayDate($res_json['info']['billing']);
+                }
+                return;
+            }
+        }
+        return $this->dm_errortxt;
     }
 
     function CloseDay()
@@ -148,7 +213,7 @@ class tPRRO {
         // $mess.=$this->CtrlCheckReport();
         // $mess.=$this->CtrlCheckReport();
         if (!$this->ZReport()) return false;
-        if ($mess != '' ) return $mess;
+        // if ($mess != '' ) return $mess;
         // if ($mess != '' ) return 'qwerty';
     }
 
@@ -236,15 +301,45 @@ function CheckReady()
             "task"  => 11,
             "cashier"   => ""
         ];
-        return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), true);
+        return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
     }
 
-    function getStatusPRRO()
+    function checkStatusPRRO()
     {
         $this->dm_request_data['fiscal'] = [
             "task"  => 18,
         ];
-        return $this->SendCmd('', json_encode($this->dm_request_data));
+        $res = $this->SendCmd('', json_encode($this->dm_request_data));
+        // $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), '');
+        if ($res === false) {
+            $this->dm_error_res = 1;
+            $this->dm_errortxt = $this->dm_unavailable_msg;
+        } elseif (($errortxt = $this->getErrorTxt($res, '')) != '') {
+            $this->dm_error_res = 1;
+            $this->dm_errortxt = errortxt;
+        } else {
+            $this->dm_error_res = 0;
+            $this->dm_errortxt = '';
+            if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+                $this->getStatusPRRO($res_json);
+                if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
+                    return $this->checkEndOfPayDate($res_json['info']['billing']);
+                }
+            }
+            return $res;
+        }
+        return false;
+        // if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+        //     if (isset($res_json['res']) && $res_json['res'] != 0) {
+        //         return recursiveConvertEncoding($res_json['errortxt']);
+        //     }
+
+
+        // return $this->SendCmd('', json_encode($this->dm_request_data));
+ 
+        // if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
+        //     return $this->checkEndOfPayDate($res_json['info']['billing']);
+        // }
     }
 
 function Z3Report()
@@ -258,26 +353,42 @@ function XReport()
         "cashier"   => ""
     ];
     $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
-    if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
-        if (isset($res_json['res']) && $res_json['res'] != 0) {
-            return recursiveConvertEncoding($res_json['errortxt']);
+    if ($raw_json === false) {
+        $this->dm_error_res = 1;
+        $this->dm_errortxt = $this->dm_unavailable_msg;
+    } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
+        $this->dm_error_res = 1;
+        $this->dm_errortxt = errortxt;
+    } else {
+        $this->dm_error_res = 0;
+        $this->dm_errortxt = '';
+        if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+            // if (isset($res_json['res']) && $res_json['res'] != 0) {
+            //     return recursiveConvertEncoding($res_json['errortxt']);
+            // }
+            $this->cash = 0.0;
+            $this->card = 0.0;
+            $pay_cash = $pay_card = 0.0;
+            $money_cash = $money_card = 0.0;
+            if (isset($res_json['info']['pays'])) {
+                $money_res = getMoneyInfo($res_json['info']['pays']);
+                $pay_cash = $money_res['cash'];
+                $pay_card = $money_res['card'];
+            }
+            if (isset($res_json['info']['money'])) {
+                $money_res = getMoneyInfo($res_json['info']['money']);
+                $money_cash = $money_res['cash'];
+                $money_card = $money_res['card'];
+            }
+            //  
+            // $this->cash = $pay_cash + $money_cash;
+            $this->cash = $res_json['info']['safe'];
+            $this->card = $pay_card + $money_card;
+            $this->getStatusPRRO($res_json);
+            if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
+                return $this->checkEndOfPayDate($res_json['info']['billing']);
+            }
         }
-        $this->cash = 0.0;
-        $this->card = 0.0;
-        $pay_cash = $pay_card = 0.0;
-        $money_cash = $money_card = 0.0;
-        if (isset($res_json['info']['pays'])) {
-            $money_res = getMoneyInfo($res_json['info']['pays']);
-            $pay_cash = $money_res['cash'];
-            $pay_card = $money_res['card'];
-        }
-        if (isset($res_json['info']['money'])) {
-            $money_res = getMoneyInfo($res_json['info']['money']);
-            $money_cash = $money_res['cash'];
-            $money_card = $money_res['card'];
-        }
-        $this->cash = $pay_cash + $money_cash;
-        $this->card = $pay_card + $money_card;
     }
     
     // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
@@ -324,21 +435,19 @@ function FMNumReport($flg, $ds, $dp)
 
 function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
 {
-    $res = $this->getStatusPRRO();
-    if ($res === false) return 'ДМ недоступен';
-    // $ret = json_decode($res, true);
+    $res = $this->checkStatusPRRO();
+    if ($res === false) return $this->dm_errortxt;
+    $ret = json_decode($res, true);
     if (isset($res) && ($ret = json_decode($res, true)) !== null) {
-        $k='1';
+        $k = '1';
         $s = ($ret['info']['shift_status'] == 0 ? 'Закрыта' : 'Открыта');
-        // $dt[1] = date('d-m-Y', $ret['time']);
-        // $dt[2] = date('H:i:s', $ret['time']);
         $dt[3] = date('d-m-Y');
         $dt[4] = date('H:i:s');
         if ($ret['info']['shift_status'] !== 0) {
-            $mess = $this->XReport();
-            if ($mess != '') return $mess;
             $c = $this->cash;
             $karta = $this->card;
+            $dt[1] = $this->dm_date;
+            $dt[2] = $this->dm_time;
         }
     }
     return '';
@@ -454,8 +563,11 @@ function GetCenaMode()
 
 function GetStatus()
 {
-    $res = $this->getStatusPRRO();
-    if ($res === false) return 'ДМ недоступен';
+    // $res = $this->checkStatusPRRO();
+    // if ($res === false) return $this->dm_unavailable_msg;
+    // $ret = json_decode($res, true);
+    $res = $this->checkStatusPRRO();
+    if ($res === false) return $this->dm_errortxt;
     $ret = json_decode($res, true);
     if (isset($res) && ($ret = json_decode($res, true)) !== null) {
         include_once("../classes/thtmltable.php");
