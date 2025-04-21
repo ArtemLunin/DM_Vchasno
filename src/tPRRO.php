@@ -183,7 +183,7 @@ class tPRRO {
             $this->dm_errortxt = $this->dm_unavailable_msg;
         } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
             $this->dm_error_res = 1;
-            $this->dm_errortxt = errortxt;
+            $this->dm_errortxt = $errortxt;
         } else {
             $this->dm_error_res = 0;
             $this->dm_errortxt = '';
@@ -316,7 +316,8 @@ function CheckReady()
             $this->dm_errortxt = $this->dm_unavailable_msg;
         } elseif (($errortxt = $this->getErrorTxt($res, '')) != '') {
             $this->dm_error_res = 1;
-            $this->dm_errortxt = errortxt;
+            $this->dm_errortxt = $errortxt;
+            // $this->dm_errortxt = 'eeerrtyyyuiiii';
         } else {
             $this->dm_error_res = 0;
             $this->dm_errortxt = '';
@@ -358,7 +359,7 @@ function XReport()
         $this->dm_errortxt = $this->dm_unavailable_msg;
     } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
         $this->dm_error_res = 1;
-        $this->dm_errortxt = errortxt;
+        $this->dm_errortxt = $errortxt;
     } else {
         $this->dm_error_res = 0;
         $this->dm_errortxt = '';
