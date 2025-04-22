@@ -57,6 +57,8 @@ class tPRRO {
     var $check_is_fiscal = true;
     var $dm_error_res = 0;
     var $dm_errortxt = '';
+    var $tovlist;
+    // var $dm_x_report_close_code = 1092;
 
     var $dm_request_data = [];
 
@@ -79,6 +81,10 @@ class tPRRO {
             "source"    => "LAB_API",
             "device"    => $this->prro_name,
             "type"      => 1,
+            "need_pf_img"   => 1, //exclude
+            "need_pf_pdf"   => 1, //exclude
+            "need_pf_txt"   => 1, //exclude
+            "need_pf_doccmd"   => 1, //exclude
             "fiscal"    => []
         ];
         $this->ready = true;
@@ -113,7 +119,7 @@ class tPRRO {
         $this->dm_fisID = $res_json['info']['fisid'];
         $this->dm_isoffline = $res_json['info']['isoffline'];
         $this->dm_dtype = $res_json['info']['dtype'];
-        $this->cash = $res_json['info']['safe'];
+        // $this->cash = $res_json['info']['safe'];
     }
     
     // function convertEncodingRecursive(array $array, $from = 'Windows-1251', $to = 'UTF-8') {
@@ -177,31 +183,17 @@ class tPRRO {
         $this->dm_request_data['fiscal'] = [
             "task"  => 0
         ];
+        $msg = '';
         $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
-        if ($raw_json === false) {
-            $this->dm_error_res = 1;
-            $this->dm_errortxt = $this->dm_unavailable_msg;
-        } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
-            $this->dm_error_res = 1;
-            $this->dm_errortxt = $errortxt;
-        } else {
-            $this->dm_error_res = 0;
-            $this->dm_errortxt = '';
-            if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
-                // if (isset($res_json['res']) && $res_json['res'] != 0) {
-                //     return recursiveConvertEncoding($res_json['errortxt']);
-                // }
-                // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
-                // $this->cash = 0.0;
-                // $this->cash = $res_json['info']['safe'];
-                $this->getStatusPRRO($res_json);
-                if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
-                    return $this->checkEndOfPayDate($res_json['info']['billing']);
-                }
-                return;
+        if (($msg = $this->get_ErrorTxt($raw_json)) === '' && ($res_json = json_decode($raw_json, true)) !== null) {
+            $this->cash = $res_json['info']['safe'];
+            $this->getStatusPRRO($res_json);
+            if ($this->dm_dtype == 1 && $this->check_is_fiscal) {
+                return $this->checkEndOfPayDate($res_json['info']['billing']);
             }
+            return;
         }
-        return $this->dm_errortxt;
+        return $msg;
     }
 
     function CloseDay()
@@ -276,24 +268,24 @@ function GetLastResult()
 	return '';
 }
 
-function ResetError()
-{
-	return true;
-}
+    function ResetError()
+    {
+        return true;
+    }
 
-function SetDate($dt)
-{
-   return '';
-}
-function SetTime($dt)
-{
-   return '';
-}
+    function SetDate($dt)
+    {
+    return '';
+    }
+    function SetTime($dt)
+    {
+    return '';
+    }
 
-function CheckReady()
-{
-   return true;
-}
+    function CheckReady()
+    {
+    return true;
+    }
 
     function ZReport()
     {
@@ -317,7 +309,6 @@ function CheckReady()
         } elseif (($errortxt = $this->getErrorTxt($res, '')) != '') {
             $this->dm_error_res = 1;
             $this->dm_errortxt = $errortxt;
-            // $this->dm_errortxt = 'eeerrtyyyuiiii';
         } else {
             $this->dm_error_res = 0;
             $this->dm_errortxt = '';
@@ -347,26 +338,32 @@ function Z3Report()
 {
 }
 
-function XReport()
-{
-	$this->dm_request_data['fiscal'] = [
-        "task"  => 10,
-        "cashier"   => ""
-    ];
-    $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
-    if ($raw_json === false) {
-        $this->dm_error_res = 1;
-        $this->dm_errortxt = $this->dm_unavailable_msg;
-    } elseif (($errortxt = $this->getErrorTxt($raw_json, '')) != '') {
-        $this->dm_error_res = 1;
-        $this->dm_errortxt = $errortxt;
-    } else {
-        $this->dm_error_res = 0;
-        $this->dm_errortxt = '';
+    function get_ErrorTxt($raw_json, $retSuccess = '') {
         if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
-            // if (isset($res_json['res']) && $res_json['res'] != 0) {
-            //     return recursiveConvertEncoding($res_json['errortxt']);
-            // }
+            $this->dm_error_res = isset($res_json['res']) ? $res_json['res'] : 1;
+            if ($this->dm_error_res == 0) {
+                $this->dm_errortxt = '';
+            } elseif (isset($res_json['errortxt'])) {
+                $this->dm_errortxt = recursiveConvertEncoding($res_json['errortxt']);
+            } else {
+                $this->dm_errortxt = 'Невідома проблема з errortxt. Код помилки: ' . $this->dm_error_res;
+            }
+        } else {
+            $this->dm_errortxt = $this->dm_unavailable_msg;
+        }
+        return $this->dm_errortxt;
+    }
+
+    function XReport()
+    {
+        $this->dm_request_data['need_pf_pdf'] = 1; //exclude'
+        $this->dm_request_data['fiscal'] = [
+            "task"  => 10,
+            "cashier"   => ""
+        ];
+        $msg = '';
+        $raw_json = $this->SendCmd('', json_encode($this->dm_request_data));
+        if (($msg = $this->get_ErrorTxt($raw_json)) === '' && ($res_json = json_decode($raw_json, true)) !== null) {
             $this->cash = 0.0;
             $this->card = 0.0;
             $pay_cash = $pay_card = 0.0;
@@ -390,10 +387,8 @@ function XReport()
                 return $this->checkEndOfPayDate($res_json['info']['billing']);
             }
         }
+        return $msg;
     }
-    
-    // return $this->getErrorTxt($this->SendCmd('', json_encode($this->dm_request_data)), null);
-}
 
 function X3Report()
 {
@@ -436,6 +431,7 @@ function FMNumReport($flg, $ds, $dp)
 
 function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
 {
+    $msg = '';
     $res = $this->checkStatusPRRO();
     if ($res === false) return $this->dm_errortxt;
     $ret = json_decode($res, true);
@@ -445,6 +441,8 @@ function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
         $dt[3] = date('d-m-Y');
         $dt[4] = date('H:i:s');
         if ($ret['info']['shift_status'] !== 0) {
+            $msg = $this->XReport();
+            if ($msg !== '') return $msg;
             $c = $this->cash;
             $karta = $this->card;
             $dt[1] = $this->dm_date;
@@ -540,7 +538,7 @@ function CancelCheck()
 
 function ResetTovary()
 {
-	// $this->tovlist='';
+	$this->tovlist='';
 }
 
 function AddTovar($code, $nds, $name, $cena=0)
@@ -622,6 +620,6 @@ function GetStatus()
 
 function GetFMStatus()
 {
-	return '';
+	return 'Нет информации';
 }
 }
