@@ -101,16 +101,17 @@ class tPRRO {
     }
     
     function get_ErrorTxt($raw_json, $retSuccess = '') {
-        if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+        if (($res_json = json_decode($raw_json, true)) !== null) {
             $this->dm_error_res = isset($res_json['res']) ? $res_json['res'] : 1;
             if ($this->dm_error_res == 0) {
-                $this->dm_errortxt = '';
+                $this->dm_errortxt = $retSuccess;
             } elseif (isset($res_json['errortxt'])) {
                 $this->dm_errortxt = recursiveConvertEncoding($res_json['errortxt']);
             } else {
                 $this->dm_errortxt = 'Невідома проблема з errortxt. Код помилки: ' . $this->dm_error_res;
             }
         } else {
+            $this->dm_error_res = 1;
             $this->dm_errortxt = $this->dm_unavailable_msg;
         }
         return $this->dm_errortxt;
@@ -306,7 +307,7 @@ function GetLastResult()
             "task"  => 11,
             "cashier"   => ""
         ];
-        return $this->getErrorTxt($this->SendCmd(json_encode($this->dm_request_data)), null);
+        return $this->get_ErrorTxt($this->SendCmd(json_encode($this->dm_request_data)), null);
     }
 
     function checkStatusPRRO()
@@ -318,21 +319,27 @@ function GetLastResult()
         if ($res === false) {
             $this->dm_error_res = 1;
             $this->dm_errortxt = $this->dm_unavailable_msg;
-        } elseif (($errortxt = $this->getErrorTxt($res, '')) != '') {
-            $this->dm_error_res = 1;
-            $this->dm_errortxt = $errortxt;
         } else {
-            $this->dm_error_res = 0;
-            $this->dm_errortxt = '';
-            if (isset($raw_json) && ($res_json = json_decode($raw_json, true)) !== null) {
+            $this->get_ErrorTxt($res);
+            if ($this->dm_error_res === 0 && ($res_json = json_decode($res, true)) !== null) {
                 $this->getStatusPRRO($res_json);
-                // if ($this->dm_dtype == 1 && $this->check_is_fiscal && 
-                //     (($errortxt = $this->checkEndOfPayDate($res_json['info']['billing'])) != '')) {
-                //     $this->dm_error_res = 1;
-                //     $this->dm_errortxt = $errortxt;
-                // }
             }
         }
+        // elseif (($errortxt = $this->getErrorTxt($res, '')) != '') {
+        //     $this->dm_error_res = 1;
+        //     $this->dm_errortxt = $errortxt;
+        // } else {
+        //     $this->dm_error_res = 0;
+        //     $this->dm_errortxt = '';
+        //     if (isset($res) && ($res_json = json_decode($res, true)) !== null) {
+        //         $this->getStatusPRRO($res_json);
+        //         // if ($this->dm_dtype == 1 && $this->check_is_fiscal && 
+        //         //     (($errortxt = $this->checkEndOfPayDate($res_json['info']['billing'])) != '')) {
+        //         //     $this->dm_error_res = 1;
+        //         //     $this->dm_errortxt = $errortxt;
+        //         // }
+        //     }
+        // }
         if ($this->dm_error_res == 0) {
             return $res;
         } else {
@@ -409,7 +416,7 @@ function FMNumReport($flg, $ds, $dp)
                 "sum"   => $cash
             ]
         ];
-        return $this->getErrorTxt($this->SendCmd(json_encode($this->dm_request_data)), null);
+        return $this->get_ErrorTxt($this->SendCmd(json_encode($this->dm_request_data)), null);
     }
 
     function GetStateKassa(&$k, &$s, &$c, &$karta, &$dt)
