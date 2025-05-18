@@ -39,11 +39,11 @@ function getMoneyInfo($money_arr) {
 
 class tPRRO {
     var $dm_address = '';
-    var $dm_port = '3939';
+    var $dm_port = DM_PORT;
     var $prro_name = '';
     var $fulladdr = '';
-    var $protocol = 'http';
-    var $path = '/dm/execute';
+    var $protocol = DM_PROTOCOL;
+    var $path = DM_PATH;
     var $ready;
     var $server = false;
     var $cash = 0.0;
@@ -209,40 +209,13 @@ class tPRRO {
         $forma->AddField($r,1,MakeTagSingl('Имя кассы', "ADDR", $this->prro_name, 30, $ro));
     }
 
-function GetData($cmd)
-{
-//    $ch=curl_init();
-// 	curl_setopt($ch, CURLOPT_URL, "http://".$this->fulladdr.$cmd);
-// 	curl_setopt($ch, CURLOPT_HEADER, 0);
-// 	curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
-// 	curl_setopt($ch, CURLOPT_USERPWD, '1:0');
-// 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-// 	curl_setopt($ch, CURLOPT_TIMEOUT, 3);
-//    $mess=curl_exec($ch);
-//    $err=curl_error($ch);
-//    curl_close($ch);
-//    if($err != '') return false;
-// 	return $mess;
-} 
+    function GetData($cmd)
+    {
+    } 
 
-function PutData($cmd, $data)
-{
-//    $ch=curl_init();
-// 	curl_setopt($ch, CURLOPT_URL, "http://".$this->fulladdr.$cmd);
-// 	curl_setopt($ch, CURLOPT_HEADER, 1);
-// 	curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
-// 	curl_setopt($ch, CURLOPT_USERPWD, '1:0');
-// 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-// 	curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-//    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-//    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));//, 'X-HTTP-Method-Override: PUT'
-//    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-//    $mess=curl_exec($ch);
-//    $err=curl_error($ch);
-//    curl_close($ch);
-//    if($err != '') return $mess .= $err;
-// 	return $mess;
-} 
+    function PutData($cmd, $data)
+    {
+    } 
 
 function OpenPort()
 {
@@ -274,12 +247,12 @@ function GetLastResult()
     }
     function SetTime($dt)
     {
-    return '';
+        return '';
     }
 
     function CheckReady()
     {
-    return true;
+        return true;
     }
 
     function ZReport()
@@ -538,11 +511,10 @@ function GetCenaMode()
             $table->AddHeaderCol($r,'№');
             $table->AddHeaderCol($r,'Название');
             $table->AddHeaderCol($r,'Значение');
-
             
             $r = $table->AddRow();
             $table->AddCol($r,'1', $atr);
-            $table->AddCol($r,'Название ДМ', "align=\"left\"");
+            $table->AddCol($r,'Имя кассы', "align=\"left\"");
             $table->AddCol($r,$ret['device'], "align=\"left\"");
             $r = $table->AddRow();
             $table->AddCol($r,'2', $atr);
@@ -552,9 +524,6 @@ function GetCenaMode()
             $table->AddCol($r,'3', $atr);
             $table->AddCol($r,'Смена',"align=\"left\"");
             $table->AddCol($r,($ret['info']['shift_status'] == 0 ? 'Закрыта' : 'Открыта'),"align=\"left\"");
-            if ($ret['info']['shift_dt'] == '') {
-
-            }
             $smena_date = date_create_from_format('YmdHis', $ret['info']['shift_dt']);
             if ($smena_date == false) {
                 $smena_date = date_create_from_format('YmdHis', '19700101000000');
