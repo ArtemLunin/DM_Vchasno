@@ -1,5 +1,5 @@
 <?php
-define('DM_ADDRESS', '10.255.3.184');
+define('DM_ADDRESS', '10.255.1.104');
 define('DM_PORT', '3939');
 define('DM_PATH', '/dm/execute');
 define('DM_PROTOCOL', 'http');
@@ -64,7 +64,7 @@ class tPRRO {
 
     function __construct($mode,$param) {
         $this->dm_address = DM_ADDRESS;
-        $this->prro_name = $param['ipaddr'];
+        $this->prro_name = recursiveConvertEncoding($param['ipaddr'], 'Windows-1251', 'UTF-8');
         if (isset($param['protocol']) && $param['protocol']) {
             $this->protocol = $param['protocol'];
         }
@@ -112,6 +112,7 @@ class tPRRO {
     }
 
     function checkEndOfPayDate($billing_arr) {
+        return '';
         $bill_date = date_create_from_format('YmdHis', $billing_arr['paid_date_to']);
         $msg = '';
         if ($bill_date == false) {
@@ -362,6 +363,8 @@ function FMNumReport($flg, $ds, $dp)
     {
         $msg = '';
         $res = $this->checkStatusPRRO();
+        $c = '';
+        $karta  = '';
         if ($res === false) return $this->dm_errortxt;
         $ret = json_decode($res, true);
         if (isset($res) && ($ret = json_decode($res, true)) !== null) {
@@ -383,13 +386,14 @@ function FMNumReport($flg, $ds, $dp)
 
     function OplCheck($s, $type)
     {
-        $p_email = '';
-        $p_phone = '';
+
 
         $xml = simplexml_load_string($s);
         if (!$xml) { 
             return '0;Ошибка в спецификации.';
         }
+        $p_email = trim((string)$xml->EMAIL);
+        $p_phone = trim((string)$xml->PHONE);
         $total_sum = 0.0;
         $total_disc = 0.0;
         $check_items = [];
