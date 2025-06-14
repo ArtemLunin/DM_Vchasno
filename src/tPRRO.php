@@ -50,7 +50,7 @@ class tPRRO {
     var $card = 0.0;
     var $dm_unavailable_msg = 'DM недоступен';
     var $dm_isoffline = false;
-    var $dm_dtype = 0;
+    var $dm_dtype = 0; // фіскальний = 1
     var $dm_date = '';
     var $dm_time = '';
     var $dm_fisID = '';
@@ -112,6 +112,7 @@ class tPRRO {
     }
 
     function checkEndOfPayDate($billing_arr) {
+        // не проверяем
         return '';
         $bill_date = date_create_from_format('YmdHis', $billing_arr['paid_date_to']);
         $msg = '';
@@ -396,8 +397,10 @@ function FMNumReport($flg, $ds, $dp)
         $p_phone = trim((string)$xml->PHONE);
         $total_sum = 0.0;
         $total_disc = 0.0;
+        $receipt_sum = 0.0;
         $check_items = [];
-        $type_pay = ($type != 0 ? 0: 2);
+        $type_pay = ($type != 0 ? 0 : 2); // 0 - cash, 2 - card
+        $autoround = ($type_pay == 0 ? true : false);
         foreach($xml->SPECLIST->SPEC as $spec)
         {
             $disc = 0.0;
@@ -415,6 +418,7 @@ function FMNumReport($flg, $ds, $dp)
                 "cost"  => 0.0,
                 "taxgrp"    => intval($spec->NDS) == 1 ? 1 : 2,
             ];
+            // taxgrp: 2 - Без ПДВ
             $total_sum += floatval($spec->CENA) * floatval($spec->KOL);
             $total_disc += $disc;
         }
@@ -425,20 +429,24 @@ function FMNumReport($flg, $ds, $dp)
         if ($p_phone != '') {
             $this->dm_request_data['userinfo']['phone'] = $p_phone;
         }
+        if ($type_pay == 0) {
+            $receipt_pays_sum = round($total_sum - $total_disc, 1, PHP_ROUND_HALF_UP);
+        } else {
+            $receipt_pays_sum = $total_sum - $total_disc;
+        }
         $this->dm_request_data['fiscal'] = [
             "task"  => 1,
             "cashier"   => "",
             "receipt"   => [
                 "sum"   => $total_sum - $total_disc,
+                "autoround" => $autoround,
                 "disc"  => 0,
                 "disc_type" => 0,
                 "rows"  => $check_items,
                 "pays"  => [
                     [
                         "type"  =>  $type_pay,
-                        "sum"   => $total_sum - $total_disc,
-                        // "comment"   => mb_convert_encoding('коментар до оплати картою', 'UTF-8','Windows-1251')
-                        "comment"   => ''
+                        "sum"   => round($total_sum - $total_disc, 1, PHP_ROUND_HALF_UP)
                     ]
                 ]
             ]
