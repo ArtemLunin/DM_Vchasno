@@ -446,7 +446,7 @@ function FMNumReport($flg, $ds, $dp)
                 "pays"  => [
                     [
                         "type"  =>  $type_pay,
-                        "sum"   => round($total_sum - $total_disc, 1, PHP_ROUND_HALF_UP)
+                        "sum"   => $receipt_pays_sum
                     ]
                 ]
             ]
