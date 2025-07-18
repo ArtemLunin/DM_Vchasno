@@ -1,6 +1,6 @@
 logs/docker_access
 logs/docker_error
 logs/php_error.log
-src/tHelpMicro.php
-src/tMiniFP54N.php
+src/tHelpMicro*.php
+src/tMiniFP54N*.php
 other/
